@@ -7,6 +7,35 @@ let tasks = [
     { id: 2, title: 'Task 2', description: 'Description for Task 2' },
 ];
 
+async function getTasks() {
+    const response = await fetch('http://localhost:3000/todos');
+    const tasks = await response.json();
+
+    const taskList = document.getElementById('taskList');
+    taskList.innerHTML = '';
+
+    tasks.forEach(task => {
+        const li = document.createElement('li');
+
+        // Display task name
+        const taskName = document.createElement('span');
+        taskName.textContent = task.name;
+
+        // Create delete button
+        const deleteButton = document.createElement('button');
+        deleteButton.textContent = 'Delete';
+
+        // Call deleteTask when button is clicked
+        deleteButton.onclick = () => deleteTask(task.id);
+
+        // Add task name and button to list item
+        li.appendChild(taskName);
+        li.appendChild(deleteButton);
+
+        taskList.appendChild(li);
+    });
+}
+
 function getTask(req, res, next) {
     const id = parseInt(req.params.id, 10);
     const task = tasks.find(t => t.id === id);
@@ -70,15 +99,27 @@ router.put('/:id', getTask, async (req, res) => {
     res.json(tasks[index]);
 });
 
-router.delete('/:id', getTask, async (req, res) => {
-    const id = parseInt(req.params.id);
-    const index = tasks.findIndex(t => t.id === id);
+router.delete('/:id', async (req, res) => {
+    try {
+        const id = req.params.id;
 
-    if (index === -1) {
-        return res.status(404).json({ message: 'Task not found' });
+        const deletedTodo = await Task.findByIdAndDelete(id);
+
+        if (!deletedTodo) {
+            return res.status(404).json({
+                error: "Task not found"
+            });
+        }
+
+        res.status(200).json({
+            message: "Task deleted successfully"
+        });
+
+    } catch (error) {
+        res.status(500).json({
+            error: "Error deleting task"
+        });
     }
-    tasks.splice(index, 1);
-    res.json({ message: 'Task deleted' });
 });
 
 module.exports = router;

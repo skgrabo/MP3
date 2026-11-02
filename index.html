@@ -17,6 +17,7 @@
     <h2>Your Tasks</h2>
     <ul id="taskList"></ul>
 
+
     <script>
         async function loadTasks() {
             const response = await fetch('/api/tasks');
@@ -28,7 +29,16 @@
 
             tasks.forEach(task => {
                 const item = document.createElement('li');
-                item.textContent = `${task.name} — ${task.deadline}`;
+
+                const description = document.createElement('span');
+                description.textContent = `${task.name} — ${task.deadline}`;
+                item.appendChild(description);
+
+                const deleteButton = document.createElement('button');
+                deleteButton.textContent = 'Delete';
+                deleteButton.onclick = () => deleteTask(task._id);
+                item.appendChild(deleteButton);
+
                 list.appendChild(item);
             });
         }
@@ -54,6 +64,19 @@
             }
 
             document.getElementById('taskInput').value = '';
+            await loadTasks();
+        }
+
+        async function deleteTask(id) {
+            const response = await fetch(`/api/tasks/${encodeURIComponent(id)}`, {
+                method: 'DELETE'
+            });
+
+            if (!response.ok) {
+                alert('Could not delete task.');
+                return;
+            }
+
             await loadTasks();
         }
 
