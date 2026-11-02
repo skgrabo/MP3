@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="stylesheet" type="text/css" href="styles.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My To-Do List</title>
+</head>
+
+<body>
+    <h1>My To-Do List</h1>
+
+    <input id="taskInput" type="text" placeholder="Add a new task...">
+    <input id="deadlineInput" type="date">
+    <button onclick="addTask()">Add Task</button>
+
+    <h2>Your Tasks</h2>
+    <ul id="taskList"></ul>
+
+    <script>
+        async function loadTasks() {
+            const response = await fetch('/api/tasks');
+            if (!response.ok) throw new Error('Could not load tasks');
+
+            const tasks = await response.json();
+            const list = document.getElementById('taskList');
+            list.replaceChildren();
+
+            tasks.forEach(task => {
+                const item = document.createElement('li');
+                item.textContent = `${task.name} — ${task.deadline}`;
+                list.appendChild(item);
+            });
+        }
+
+        async function addTask() {
+            const name = document.getElementById('taskInput').value.trim();
+            const deadline = document.getElementById('deadlineInput').value;
+
+            if (!name || !deadline) {
+                alert('Enter a task name and deadline.');
+                return;
+            }
+
+            const response = await fetch('/api/tasks', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, deadline })
+            });
+
+            if (!response.ok) {
+                alert('Could not add task.');
+                return;
+            }
+
+            document.getElementById('taskInput').value = '';
+            await loadTasks();
+        }
+
+        loadTasks().catch(error => alert(error.message));
+    </script>
+
+</body>
+</html>

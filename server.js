@@ -28,9 +28,20 @@ app.use(allowCrossDomain);
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
+
+app.use('/users', require('./routes/users'));
+
+
+
 // Use routes as a module (see index.js)
 require('./routes')(app, router);
 
 // Start the server
 app.listen(port);
 console.log('Server running on port ' + port);
+
+const path = require('node:path');
+
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
