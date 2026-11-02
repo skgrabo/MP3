@@ -1,9 +1,27 @@
+button, input {
+    border: none;
+    background-color: #c7f9cb;
+    color: #233925;
+    padding: 0.5rem 1rem;
+    border-radius: 0.25rem;
+}
+
+
+button {
+    cursor: pointer;
+}
+
 body {
     display: flex;
     flex-direction: column;
     align-items: center;
     background-color: #96d89b;
 }
+
+h1, h2, p, #taskList {
+    color: #233925;
+}
+
 
 #signupForm {
     display: flex;
@@ -13,4 +31,33 @@ body {
 
 #signupError {
     color: #8b0000;
+}
+
+#taskList {
+    width: min(100%, 40rem);
+    padding: 0;
+    list-style: none;
+}
+
+.task-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.75rem 0;
+}
+
+.task-information {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.task-name {
+    font-size: 1.25rem;
+    font-weight: bold;
+}
+
+.task-delete {
+    flex-shrink: 0;
 }

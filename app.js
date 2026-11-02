@@ -41,13 +41,24 @@ async function loadTasks() {
 
     tasks.forEach(task => {
         const item = document.createElement('li');
+        item.className = 'task-item';
 
-        const description = document.createElement('span');
-        description.textContent = `${task.name} — ${task.description} — Due: ${new Date(task.deadline).toLocaleDateString()}`;
-        item.appendChild(description);
+        const information = document.createElement('div');
+        information.className = 'task-information';
+
+        const taskName = document.createElement('span');
+        taskName.className = 'task-name';
+        taskName.textContent = task.name;
+        information.appendChild(taskName);
+
+        const taskDetails = document.createElement('span');
+        taskDetails.textContent = `${task.description} — Due: ${new Date(task.deadline).toLocaleDateString()}`;
+        information.appendChild(taskDetails);
+        item.appendChild(information);
 
         const deleteButton = document.createElement('button');
         deleteButton.textContent = 'Delete';
+        deleteButton.className = 'task-delete';
         deleteButton.onclick = () => deleteTask(task._id);
         item.appendChild(deleteButton);
 
