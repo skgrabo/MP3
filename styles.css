@@ -4,3 +4,13 @@ body {
     align-items: center;
     background-color: #96d89b;
 }
+
+#signupForm {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+#signupError {
+    color: #8b0000;
+}

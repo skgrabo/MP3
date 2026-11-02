@@ -2,6 +2,7 @@
 var express = require('express'),
     router = express.Router(),
     mongoose = require('mongoose');
+var path = require('node:path');
 
 // Read .env file
 require('dotenv').config();
@@ -31,17 +32,21 @@ app.use(express.json());
 
 app.use('/users', require('./routes/users'));
 
-
-
 // Use routes as a module (see index.js)
 require('./routes')(app, router);
 
-// Start the server
-app.listen(port);
-console.log('Server running on port ' + port);
+app.get('/app.js', (req, res) => {
+    res.sendFile(path.join(__dirname, 'app.js'));
+});
 
-const path = require('node:path');
+app.get('/styles.css', (req, res) => {
+    res.sendFile(path.join(__dirname, 'styles.css'));
+});
 
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
+
+// Start the server
+app.listen(port);
+console.log('Server running on port ' + port);

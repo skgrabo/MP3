@@ -5,83 +5,34 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>My To-Do List</title>
+    <script src="app.js" defer></script>
 </head>
 
 <body>
     <h1>My To-Do List</h1>
 
-    <input id="taskInput" type="text" placeholder="Add a new task...">
-    <input id="deadlineInput" type="date">
-    <button onclick="addTask()">Add Task</button>
+    <section id="signupPanel">
+        <h2>Join your to-do list</h2>
+        <form id="signupForm">
+            <label for="userName">Name</label>
+            <input id="userName" name="name" type="text" autocomplete="name" required>
+            <label for="userEmail">Email</label>
+            <input id="userEmail" name="email" type="email" autocomplete="email" required>
+            <button type="submit">Join</button>
+        </form>
+        <p id="signupError" role="alert"></p>
+    </section>
 
-    <h2>Your Tasks</h2>
-    <ul id="taskList"></ul>
+    <section id="todoApp" hidden>
+        <p id="welcomeMessage"></p>
+        <input id="taskInput" type="text" placeholder="Task name">
+        <textarea id="descriptionInput" placeholder="Task description"></textarea>
+        <input id="deadlineInput" type="date">
+        <button onclick="addTask()">Add Task</button>
 
-
-    <script>
-        async function loadTasks() {
-            const response = await fetch('/api/tasks');
-            if (!response.ok) throw new Error('Could not load tasks');
-
-            const tasks = await response.json();
-            const list = document.getElementById('taskList');
-            list.replaceChildren();
-
-            tasks.forEach(task => {
-                const item = document.createElement('li');
-
-                const description = document.createElement('span');
-                description.textContent = `${task.name} — ${task.deadline}`;
-                item.appendChild(description);
-
-                const deleteButton = document.createElement('button');
-                deleteButton.textContent = 'Delete';
-                deleteButton.onclick = () => deleteTask(task._id);
-                item.appendChild(deleteButton);
-
-                list.appendChild(item);
-            });
-        }
-
-        async function addTask() {
-            const name = document.getElementById('taskInput').value.trim();
-            const deadline = document.getElementById('deadlineInput').value;
-
-            if (!name || !deadline) {
-                alert('Enter a task name and deadline.');
-                return;
-            }
-
-            const response = await fetch('/api/tasks', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, deadline })
-            });
-
-            if (!response.ok) {
-                alert('Could not add task.');
-                return;
-            }
-
-            document.getElementById('taskInput').value = '';
-            await loadTasks();
-        }
-
-        async function deleteTask(id) {
-            const response = await fetch(`/api/tasks/${encodeURIComponent(id)}`, {
-                method: 'DELETE'
-            });
-
-            if (!response.ok) {
-                alert('Could not delete task.');
-                return;
-            }
-
-            await loadTasks();
-        }
-
-        loadTasks().catch(error => alert(error.message));
-    </script>
+        <h2>Your Tasks</h2>
+        <ul id="taskList"></ul>
+    </section>
 
 </body>
 </html>
