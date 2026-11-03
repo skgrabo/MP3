@@ -61,18 +61,16 @@ async function syncTaskAssignment(task, previousUserId, assignedUser) {
 
 router.get('/', async (req, res) => {
     try {
-        const user = await getRequestUser(req);
         const options = parseCollectionQuery(req.query, 100);
-        const where = { $and: [options.where, { assignedUser: String(user._id) }] };
         if (options.count) {
-            const count = await Task.countDocuments(where);
+            const count = await Task.countDocuments(options.where);
             return res.json(count);
         }
         if (options.limit === 0) {
             return res.json([]);
         }
 
-        const query = Task.find(where);
+        const query = Task.find(options.where);
         if (options.sort) query.sort(options.sort);
         if (options.select) query.select(options.select);
         if (options.skip) query.skip(options.skip);

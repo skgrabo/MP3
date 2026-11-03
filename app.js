@@ -60,7 +60,19 @@ async function loadTasks() {
         const taskDetails = document.createElement('span');
         taskDetails.textContent = `${task.description} — Due: ${new Date(task.deadline).toLocaleDateString()}`;
         information.appendChild(taskDetails);
+        if (task.completed) {
+            const completedLabel = document.createElement('span');
+            completedLabel.textContent = 'Completed';
+            information.appendChild(completedLabel);
+        }
         item.appendChild(information);
+
+        if (!task.completed && task.assignedUser === user._id) {
+            const completeButton = document.createElement('button');
+            completeButton.textContent = 'Mark Complete';
+            completeButton.onclick = () => completeTask(task);
+            item.appendChild(completeButton);
+        }
 
         const deleteButton = document.createElement('button');
         deleteButton.textContent = 'Delete';
@@ -70,6 +82,38 @@ async function loadTasks() {
 
         list.appendChild(item);
     });
+}
+
+async function completeTask(task) {
+    const user = JSON.parse(localStorage.getItem('todoUser'));
+    if (!user?._id || task.assignedUser !== user._id) {
+        alert('Only the user assigned to this task can complete it.');
+        return;
+    }
+
+    const response = await fetch(`/api/tasks/${encodeURIComponent(task._id)}`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-User-Id': user._id
+        },
+        body: JSON.stringify({
+            name: task.name,
+            description: task.description,
+            deadline: task.deadline,
+            completed: true,
+            assignedUser: task.assignedUser,
+            assignedUserName: task.assignedUserName
+        })
+    });
+
+    if (!response.ok) {
+        const result = await response.json();
+        alert(result.message || 'Could not mark task as complete.');
+        return;
+    }
+
+    await loadTasks();
 }
 
 async function addTask() {
