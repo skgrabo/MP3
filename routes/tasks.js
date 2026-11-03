@@ -20,6 +20,9 @@ const {
 function getTaskFields(body, user) {
     const assignedUser = validateAssignedUser(body.assignedUser);
 
+    if (assignedUser && !user) {
+        badRequest('A valid user identity is required to assign a task.');
+    }
     if (body.assignedUser !== undefined && body.assignedUser !== '' && assignedUser !== String(user._id).toLowerCase()) {
         badRequest('assignedUser must match the current user.');
     }
@@ -103,7 +106,7 @@ router.get('/', async (req, res) => {
 
 router.post('/', async (req, res) => {
     try {
-        const user = await getRequestUser(req);
+        const user = req.get('X-User-Id') ? await getRequestUser(req) : null;
         const body = validateBody(req.body);
         const fields = getTaskFields(body, user);
         const task = await new Task(fields).save();
