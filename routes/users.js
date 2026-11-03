@@ -160,7 +160,7 @@ router.delete('/:id', async (req, res) => {
             { $set: { assignedUser: '', assignedUserName: 'unassigned' } }
         );
         await user.deleteOne();
-        return successResponse(res, user, 200, 'User deleted successfully.');
+        return res.status(204).end();
     } catch (err) {
         sendError(res, err);
     }

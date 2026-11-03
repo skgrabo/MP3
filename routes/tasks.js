@@ -134,10 +134,14 @@ router.get('/:id', async (req, res) => {
 
 router.put('/:id', async (req, res) => {
     try {
-        const user = await getRequestUser(req);
         if (!validUrlId(req.params.id)) throw new ApiError(404, 'Task not found.');
-        const task = await Task.findOne({ _id: req.params.id, assignedUser: String(user._id) });
+        const task = await Task.findById(req.params.id);
         if (!task) {
+            throw new ApiError(404, 'Task not found.');
+        }
+
+        const user = await getRequestUser(req);
+        if (task.assignedUser !== String(user._id)) {
             throw new ApiError(404, 'Task not found.');
         }
 
