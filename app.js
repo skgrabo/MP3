@@ -70,9 +70,22 @@ async function addTask() {
     const name = document.getElementById('taskInput').value.trim();
     const description = document.getElementById('descriptionInput').value.trim();
     const deadline = document.getElementById('deadlineInput').value;
+    let user;
+
+    try {
+        user = JSON.parse(localStorage.getItem('todoUser'));
+    } catch (error) {
+        alert('Could not read the signed-in user. Please join again.');
+        return;
+    }
 
     if (!name || !deadline) {
         alert('Enter a task name and deadline.');
+        return;
+    }
+
+    if (!user?._id || !user.name) {
+        alert('Please join before creating a task.');
         return;
     }
 
@@ -84,8 +97,8 @@ async function addTask() {
             description,
             deadline,
             completed: false,
-            assignedUser: '',
-            assignedUserName: 'unassigned'
+            assignedUser: user._id,
+            assignedUserName: user.name
         })
     });
 
