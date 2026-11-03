@@ -162,7 +162,7 @@ router.delete('/:id', async (req, res) => {
             );
         }
         const task = await Task.findOneAndDelete(filter);
-        return successResponse(res, task, 200, 'Task deleted successfully.');
+        return successResponse(res, task, 204, 'Task deleted successfully.');
     } catch (err) {
         sendError(res, err);
     }
