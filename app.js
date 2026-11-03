@@ -18,12 +18,13 @@ document.getElementById('signupForm').addEventListener('submit', async event => 
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name, email })
         });
-        const user = await response.json();
+        const result = await response.json();
 
         if (!response.ok) {
-            throw new Error(user.message || 'Could not create your account.');
+            throw new Error(result.message || 'Could not create your account.');
         }
 
+        const user = result.data;
         localStorage.setItem('todoUser', JSON.stringify(user));
         showTodoApp(user);
     } catch (error) {
@@ -32,7 +33,12 @@ document.getElementById('signupForm').addEventListener('submit', async event => 
 });
 
 async function loadTasks() {
-    const response = await fetch('/api/tasks');
+    const user = JSON.parse(localStorage.getItem('todoUser'));
+    if (!user?._id) throw new Error('Please join before loading tasks.');
+
+    const response = await fetch('/api/tasks', {
+        headers: { 'X-User-Id': user._id }
+    });
     if (!response.ok) throw new Error('Could not load tasks');
 
     const tasks = await response.json();
@@ -91,7 +97,7 @@ async function addTask() {
 
     const response = await fetch('/api/tasks', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-User-Id': user._id },
         body: JSON.stringify({
             name,
             description,
@@ -114,8 +120,15 @@ async function addTask() {
 }
 
 async function deleteTask(id) {
+    const user = JSON.parse(localStorage.getItem('todoUser'));
+    if (!user?._id) {
+        alert('Please join before deleting a task.');
+        return;
+    }
+
     const response = await fetch(`/api/tasks/${encodeURIComponent(id)}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: { 'X-User-Id': user._id }
     });
 
     if (!response.ok) {
@@ -129,7 +142,10 @@ async function deleteTask(id) {
 const savedUser = localStorage.getItem('todoUser');
 if (savedUser) {
     try {
-        showTodoApp(JSON.parse(savedUser));
+        const user = JSON.parse(savedUser);
+        const currentUser = user.data || user;
+        localStorage.setItem('todoUser', JSON.stringify(currentUser));
+        showTodoApp(currentUser);
     } catch (error) {
         localStorage.removeItem('todoUser');
         console.error('Could not restore saved user:', error);

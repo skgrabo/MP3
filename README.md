@@ -78,9 +78,11 @@ Here is the Task Schema:
 2. "description" - String
 3. "deadline" - Date
 4. "completed" - Boolean
-5. "assignedUser" - String - The \_id field of the user this task is assigned to - default ""
-6. "assignedUserName" - String - The name field of the user this task is assigned to - default "unassigned"
+5. "assignedUser" - String - The \_id field of the user who owns the task - default ""
+6. "assignedUserName" - String - The name field of the user who owns the task - default "unassigned"
 7. "dateCreated" - Date - should be set automatically by server to present date
+
+Task API requests require an `X-User-Id` header containing the caller's user \_id. Task collection queries and individual task reads, updates, and deletes are restricted to tasks whose `assignedUser` matches that user. The header uses the app's existing client-stored identity and is not a substitute for secure authentication.
 
 **We assume that each task can be assigned only to one user.**
 
