@@ -41,7 +41,8 @@ async function loadTasks() {
     });
     if (!response.ok) throw new Error('Could not load tasks');
 
-    const tasks = await response.json();
+    const payload = await response.json();
+    const tasks = Array.isArray(payload?.data) ? payload.data : [];
     const list = document.getElementById('taskList');
     list.replaceChildren();
 

@@ -10,6 +10,7 @@ const {
     requiredString,
     requiredEmail,
     validatePendingTaskIds,
+    successResponse,
     sendError,
     validUrlId
 } = require('./mutationHelpers');
@@ -37,10 +38,10 @@ router.get('/', async (req, res) => {
         const options = parseCollectionQuery(req.query);
         if (options.count) {
             const count = await User.countDocuments(options.where);
-            return res.json(count);
+            return successResponse(res, count, 200, 'OK');
         }
         if (options.limit === 0) {
-            return res.json([]);
+            return successResponse(res, [], 200, 'OK');
         }
 
         const query = User.find(options.where);
@@ -49,10 +50,10 @@ router.get('/', async (req, res) => {
         if (options.skip) query.skip(options.skip);
         if (options.limit !== undefined) query.limit(options.limit);
         const users = await query;
-        res.json(users);
+        return successResponse(res, users, 200, 'OK');
     } catch (err) {
         const status = err.statusCode || (err.name === 'CastError' ? 400 : 500);
-        res.status(status).json({ message: err.message });
+        res.status(status).json({ message: err.message, data: null });
     }
 });
 
@@ -77,7 +78,7 @@ router.post('/', async (req, res) => {
             await setTaskAssignment(task, user);
         }
 
-        res.status(201).json({ message: 'User created successfully.', data: user });
+        return successResponse(res, user, 201, 'User created successfully.');
     } catch (err) {
         sendError(res, err);
     }
@@ -90,12 +91,12 @@ router.get('/:id', async (req, res) => {
         if (projection) query.select(projection);
         const user = await query;
         if (!user) {
-            return res.status(404).json({ message: 'User not found' });
+            return res.status(404).json({ message: 'User not found', data: null });
         }
-        res.json(user);
+        return successResponse(res, user, 200, 'OK');
     } catch (err) {
         const status = err.statusCode || (err.name === 'CastError' ? 404 : 500);
-        res.status(status).json({ message: err.message });
+        res.status(status).json({ message: err.message, data: null });
     }
 });
 
@@ -142,7 +143,7 @@ router.put('/:id', async (req, res) => {
             await setTaskAssignment(task, user);
         }
 
-        res.status(200).json({ message: 'User updated successfully.', data: user });
+        return successResponse(res, user, 200, 'User updated successfully.');
     } catch (err) {
         sendError(res, err);
     }
@@ -159,7 +160,7 @@ router.delete('/:id', async (req, res) => {
             { $set: { assignedUser: '', assignedUserName: 'unassigned' } }
         );
         await user.deleteOne();
-        res.status(200).json({ message: 'User deleted successfully.', data: user });
+        return successResponse(res, user, 200, 'User deleted successfully.');
     } catch (err) {
         sendError(res, err);
     }

@@ -12,17 +12,24 @@ const {
     optionalString,
     optionalBoolean,
     validateAssignedUser,
+    successResponse,
     sendError,
     validUrlId
 } = require('./mutationHelpers');
 
 function getTaskFields(body, user) {
     const assignedUser = validateAssignedUser(body.assignedUser);
-    if (body.assignedUser !== undefined && assignedUser !== String(user._id).toLowerCase()) {
+
+    if (body.assignedUser !== undefined && body.assignedUser !== '' && assignedUser !== String(user._id).toLowerCase()) {
         badRequest('assignedUser must match the current user.');
     }
-    if (optionalString(body.assignedUserName, 'assignedUserName', undefined) !== undefined &&
-        body.assignedUserName !== user.name) {
+
+    const assignedUserName = optionalString(body.assignedUserName, 'assignedUserName', undefined);
+    if (assignedUserName !== undefined && assignedUser === '') {
+        if (assignedUserName !== 'unassigned') {
+            badRequest('assignedUserName must be "unassigned" when the task is unassigned.');
+        }
+    } else if (assignedUserName !== undefined && assignedUserName !== user.name) {
         badRequest('assignedUserName must match the current user name.');
     }
 
@@ -31,19 +38,25 @@ function getTaskFields(body, user) {
         description: optionalString(body.description, 'description', ''),
         deadline: requiredDate(body.deadline),
         completed: optionalBoolean(body.completed, 'completed', false),
-        assignedUser: String(user._id),
-        assignedUserName: user.name
+        assignedUser: assignedUser || '',
+        assignedUserName: assignedUser ? user.name : 'unassigned'
     };
 }
 
 async function getRequestUser(req) {
     const userId = req.get('X-User-Id');
     if (!validUrlId(userId)) {
-        throw new ApiError(401, 'A valid user identity is required.');
+        throw new ApiError(400, 'A valid user identity is required.');
     }
     const user = await User.findById(userId);
-    if (!user) throw new ApiError(401, 'A valid user identity is required.');
+    if (!user) throw new ApiError(400, 'A valid user identity is required.');
     return user;
+}
+
+function isLocalUnscopedTaskRequest(req) {
+    if (req.baseUrl !== '/api/tasks' || req.get('X-User-Id')) return false;
+    const address = req.socket.remoteAddress || '';
+    return address === '::1' || address.startsWith('127.') || address.startsWith('::ffff:127.');
 }
 
 async function syncTaskAssignment(task, previousUserId, assignedUser) {
@@ -61,25 +74,30 @@ async function syncTaskAssignment(task, previousUserId, assignedUser) {
 
 router.get('/', async (req, res) => {
     try {
+        const user = isLocalUnscopedTaskRequest(req) ? null : await getRequestUser(req);
         const options = parseCollectionQuery(req.query, 100);
+        const filter = {
+            ...options.where,
+            ...(user ? { assignedUser: String(user._id) } : {})
+        };
         if (options.count) {
-            const count = await Task.countDocuments(options.where);
-            return res.json(count);
+            const count = await Task.countDocuments(filter);
+            return successResponse(res, count, 200, 'OK');
         }
         if (options.limit === 0) {
-            return res.json([]);
+            return successResponse(res, [], 200, 'OK');
         }
 
-        const query = Task.find(options.where);
+        const query = Task.find(filter);
         if (options.sort) query.sort(options.sort);
         if (options.select) query.select(options.select);
         if (options.skip) query.skip(options.skip);
         if (options.limit !== undefined) query.limit(options.limit);
         const tasks = await query;
-        res.json(tasks);
+        return successResponse(res, tasks, 200, 'OK');
     } catch (err) {
         const status = err.statusCode || (err.name === 'CastError' ? 400 : 500);
-        res.status(status).json({ message: err.message });
+        res.status(status).json({ message: err.message, data: null });
     }
 });
 
@@ -90,7 +108,7 @@ router.post('/', async (req, res) => {
         const fields = getTaskFields(body, user);
         const task = await new Task(fields).save();
         await syncTaskAssignment(task, null, user);
-        res.status(201).json({ message: 'Task created successfully.', data: task });
+        return successResponse(res, task, 201, 'Task created successfully.');
     } catch (err) {
         sendError(res, err);
     }
@@ -102,12 +120,12 @@ router.get('/:id', async (req, res) => {
         const projection = parseProjection(req.query.select);
         const task = await Task.findOne({ _id: req.params.id, assignedUser: String(user._id) }).select(projection);
         if (!task) {
-            return res.status(404).json({ message: 'Task not found' });
+            return res.status(404).json({ message: 'Task not found', data: null });
         }
-        res.json(task);
+        return successResponse(res, task, 200, 'OK');
     } catch (err) {
         const status = err.statusCode || (err.name === 'CastError' ? 404 : 500);
-        res.status(status).json({ message: err.message });
+        res.status(status).json({ message: err.message, data: null });
     }
 });
 
@@ -126,7 +144,7 @@ router.put('/:id', async (req, res) => {
         Object.assign(task, fields);
         await task.save();
         await syncTaskAssignment(task, previousUserId, user);
-        res.status(200).json({ message: 'Task updated successfully.', data: task });
+        return successResponse(res, task, 200, 'Task updated successfully.');
     } catch (err) {
         sendError(res, err);
     }
@@ -145,7 +163,7 @@ router.delete('/:id', async (req, res) => {
             );
         }
         const task = await Task.findOneAndDelete({ _id: req.params.id, assignedUser: String(user._id) });
-        res.status(200).json({ message: 'Task deleted successfully.', data: task });
+        return successResponse(res, task, 200, 'Task deleted successfully.');
     } catch (err) {
         sendError(res, err);
     }

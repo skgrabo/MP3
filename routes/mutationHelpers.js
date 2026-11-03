@@ -71,6 +71,10 @@ function validateAssignedUser(value) {
     return value.toLowerCase();
 }
 
+function successResponse(res, data, statusCode = 200, message = 'OK') {
+    return res.status(statusCode).json({ message, data });
+}
+
 function sendError(res, error) {
     if (error instanceof ApiError) {
         return res.status(error.statusCode).json({ message: error.message, data: null });
@@ -100,6 +104,7 @@ module.exports = {
     optionalBoolean,
     validatePendingTaskIds,
     validateAssignedUser,
+    successResponse,
     sendError,
     validUrlId
 };
