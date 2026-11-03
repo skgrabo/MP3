@@ -17,49 +17,35 @@ const {
     validUrlId
 } = require('./mutationHelpers');
 
-function getTaskFields(body, user) {
-    const assignedUser = validateAssignedUser(body.assignedUser);
-
-    if (assignedUser && !user) {
-        badRequest('A valid user identity is required to assign a task.');
+async function getTaskFields(body) {
+    const assignedUserId = validateAssignedUser(body.assignedUser);
+    const assignedUser = assignedUserId ? await User.findById(assignedUserId) : null;
+    if (assignedUserId && !assignedUser) {
+        throw new ApiError(404, 'The assigned user was not found.');
     }
-    if (body.assignedUser !== undefined && body.assignedUser !== '' && assignedUser !== String(user._id).toLowerCase()) {
-        badRequest('assignedUser must match the current user.');
-    }
-
     const assignedUserName = optionalString(body.assignedUserName, 'assignedUserName', undefined);
-    if (assignedUserName !== undefined && assignedUser === '') {
-        if (assignedUserName !== 'unassigned') {
-            badRequest('assignedUserName must be "unassigned" when the task is unassigned.');
-        }
-    } else if (assignedUserName !== undefined && assignedUserName !== user.name) {
-        badRequest('assignedUserName must match the current user name.');
+    const expectedAssignedUserName = assignedUser ? assignedUser.name : 'unassigned';
+    if (assignedUserName !== undefined && assignedUserName !== expectedAssignedUserName) {
+        badRequest('assignedUserName must match assignedUser.');
     }
 
     return {
-        name: requiredString(body.name, 'name'),
-        description: optionalString(body.description, 'description', ''),
-        deadline: requiredDate(body.deadline),
-        completed: optionalBoolean(body.completed, 'completed', false),
-        assignedUser: assignedUser || '',
-        assignedUserName: assignedUser ? user.name : 'unassigned'
+        fields: {
+            name: requiredString(body.name, 'name'),
+            description: optionalString(body.description, 'description', ''),
+            deadline: requiredDate(body.deadline),
+            completed: optionalBoolean(body.completed, 'completed', false),
+            assignedUser: assignedUser ? String(assignedUser._id) : '',
+            assignedUserName: expectedAssignedUserName
+        },
+        assignedUser
     };
 }
 
-async function getRequestUser(req) {
+async function getOptionalRequestUser(req) {
     const userId = req.get('X-User-Id');
-    if (!validUrlId(userId)) {
-        throw new ApiError(400, 'A valid user identity is required.');
-    }
-    const user = await User.findById(userId);
-    if (!user) throw new ApiError(400, 'A valid user identity is required.');
-    return user;
-}
-
-function isLocalUnscopedTaskRequest(req) {
-    if (req.baseUrl !== '/api/tasks' || req.get('X-User-Id')) return false;
-    const address = req.socket.remoteAddress || '';
-    return address === '::1' || address.startsWith('127.') || address.startsWith('::ffff:127.');
+    if (!validUrlId(userId)) return null;
+    return User.findById(userId);
 }
 
 async function syncTaskAssignment(task, previousUserId, assignedUser) {
@@ -77,7 +63,7 @@ async function syncTaskAssignment(task, previousUserId, assignedUser) {
 
 router.get('/', async (req, res) => {
     try {
-        const user = isLocalUnscopedTaskRequest(req) ? null : await getRequestUser(req);
+        const user = await getOptionalRequestUser(req);
         const options = parseCollectionQuery(req.query, 100);
         const filter = {
             ...options.where,
@@ -106,11 +92,10 @@ router.get('/', async (req, res) => {
 
 router.post('/', async (req, res) => {
     try {
-        const user = req.get('X-User-Id') ? await getRequestUser(req) : null;
         const body = validateBody(req.body);
-        const fields = getTaskFields(body, user);
+        const { fields, assignedUser } = await getTaskFields(body);
         const task = await new Task(fields).save();
-        await syncTaskAssignment(task, null, user);
+        await syncTaskAssignment(task, null, assignedUser);
         return successResponse(res, task, 201, 'Task created successfully.');
     } catch (err) {
         sendError(res, err);
@@ -119,9 +104,14 @@ router.post('/', async (req, res) => {
 
 router.get('/:id', async (req, res) => {
     try {
-        const user = await getRequestUser(req);
+        const user = await getOptionalRequestUser(req);
         const projection = parseProjection(req.query.select);
-        const task = await Task.findOne({ _id: req.params.id, assignedUser: String(user._id) }).select(projection);
+        const filter = user
+            ? { _id: req.params.id, assignedUser: String(user._id) }
+            : { _id: req.params.id };
+        const query = Task.findOne(filter);
+        if (projection) query.select(projection);
+        const task = await query;
         if (!task) {
             return res.status(404).json({ message: 'Task not found', data: null });
         }
@@ -135,22 +125,21 @@ router.get('/:id', async (req, res) => {
 router.put('/:id', async (req, res) => {
     try {
         if (!validUrlId(req.params.id)) throw new ApiError(404, 'Task not found.');
-        const task = await Task.findById(req.params.id);
+        const user = await getOptionalRequestUser(req);
+        const filter = user
+            ? { _id: req.params.id, assignedUser: String(user._id) }
+            : { _id: req.params.id };
+        const task = await Task.findOne(filter);
         if (!task) {
             throw new ApiError(404, 'Task not found.');
         }
 
-        const user = await getRequestUser(req);
-        if (task.assignedUser !== String(user._id)) {
-            throw new ApiError(404, 'Task not found.');
-        }
-
         const body = validateBody(req.body);
-        const fields = getTaskFields(body, user);
+        const { fields, assignedUser } = await getTaskFields(body);
         const previousUserId = task.assignedUser;
         Object.assign(task, fields);
         await task.save();
-        await syncTaskAssignment(task, previousUserId, user);
+        await syncTaskAssignment(task, previousUserId, assignedUser);
         return successResponse(res, task, 200, 'Task updated successfully.');
     } catch (err) {
         sendError(res, err);
@@ -159,9 +148,12 @@ router.put('/:id', async (req, res) => {
 
 router.delete('/:id', async (req, res) => {
     try {
-        const user = await getRequestUser(req);
         if (!validUrlId(req.params.id)) throw new ApiError(404, 'Task not found.');
-        const existing = await Task.findOne({ _id: req.params.id, assignedUser: String(user._id) });
+        const user = await getOptionalRequestUser(req);
+        const filter = user
+            ? { _id: req.params.id, assignedUser: String(user._id) }
+            : { _id: req.params.id };
+        const existing = await Task.findOne(filter);
         if (!existing) throw new ApiError(404, 'Task not found.');
         if (existing.assignedUser) {
             await User.updateOne(
@@ -169,7 +161,7 @@ router.delete('/:id', async (req, res) => {
                 { $pull: { pendingTasks: String(existing._id) } }
             );
         }
-        const task = await Task.findOneAndDelete({ _id: req.params.id, assignedUser: String(user._id) });
+        const task = await Task.findOneAndDelete(filter);
         return successResponse(res, task, 200, 'Task deleted successfully.');
     } catch (err) {
         sendError(res, err);
